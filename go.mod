@@ -1,4 +1,4 @@
-module highrise-go
+module github.com/brianrstp/highrise-go
 
 go 1.26
 
