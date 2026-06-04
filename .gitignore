@@ -1,2 +1,2 @@
-cmd/
+*.exe
 *_test.go
