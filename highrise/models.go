@@ -127,6 +127,25 @@ type SessionUserEntry struct {
 	Position PositionOrAnchor `json:"position"`
 }
 
+func (e *SessionUserEntry) UnmarshalJSON(data []byte) error {
+	var arr []json.RawMessage
+	if err := json.Unmarshal(data, &arr); err != nil {
+		return err
+	}
+	if len(arr) != 2 {
+		return nil
+	}
+	if err := json.Unmarshal(arr[0], &e.User); err != nil {
+		return err
+	}
+	var pos Position
+	if err := json.Unmarshal(arr[1], &pos); err != nil {
+		return err
+	}
+	e.Position = PositionOrAnchor{Position: &pos}
+	return nil
+}
+
 // RoomInfo contains room metadata
 type RoomInfo struct {
 	OwnerID  string `json:"owner_id"`
