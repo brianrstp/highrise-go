@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"highrise-go/highrise"
+	"github.com/brianrstp/highrise-go/highrise"
 )
 
 type MyBot struct {
