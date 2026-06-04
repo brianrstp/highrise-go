@@ -11,11 +11,13 @@ import (
 
 const webapiBaseURL = "https://webapi.highrise.game"
 
+// WebAPI provides a REST client for the Highrise WebAPI
 type WebAPI struct {
 	client  *http.Client
 	baseURL string
 }
 
+// NewWebAPI creates a new WebAPI client
 func NewWebAPI() *WebAPI {
 	return &WebAPI{
 		client:  &http.Client{},
@@ -49,15 +51,18 @@ func (w *WebAPI) getJSON(path string, query url.Values, dest any) error {
 	return nil
 }
 
+// UserData contains basic user information from the WebAPI
 type UserData struct {
 	UserID   string `json:"user_id"`
 	Username string `json:"username"`
 }
 
+// UserResponse wraps a single user response
 type UserResponse struct {
 	User UserData `json:"user"`
 }
 
+// GetUser gets a user by ID
 func (w *WebAPI) GetUser(ctx context.Context, userID string) (*UserData, error) {
 	var resp UserResponse
 	if err := w.getJSON("/users/"+userID, nil, &resp); err != nil {
@@ -66,6 +71,7 @@ func (w *WebAPI) GetUser(ctx context.Context, userID string) (*UserData, error) 
 	return &resp.User, nil
 }
 
+// UsersListParams contains optional parameters for listing users
 type UsersListParams struct {
 	StartsAfter string
 	EndsBefore  string
@@ -74,11 +80,16 @@ type UsersListParams struct {
 	Username    string
 }
 
+// UsersListResponse contains a paginated list of users
 type UsersListResponse struct {
-	Users []UserData `json:"users"`
+	Users     []UserData `json:"users"`
+	Total     int        `json:"total"`
+	FirstID   string     `json:"first_id"`
+	LastID    string     `json:"last_id"`
 }
 
-func (w *WebAPI) GetUsers(ctx context.Context, params UsersListParams) ([]UserData, error) {
+// GetUsers lists users with optional filters
+func (w *WebAPI) GetUsers(ctx context.Context, params UsersListParams) (*UsersListResponse, error) {
 	q := url.Values{}
 	if params.StartsAfter != "" {
 		q.Set("starts_after", params.StartsAfter)
@@ -99,19 +110,30 @@ func (w *WebAPI) GetUsers(ctx context.Context, params UsersListParams) ([]UserDa
 	if err := w.getJSON("/users", q, &resp); err != nil {
 		return nil, err
 	}
-	return resp.Users, nil
+	return &resp, nil
 }
 
+// RoomData contains room information from the WebAPI
 type RoomData struct {
-	RoomID   string `json:"room_id"`
-	RoomName string `json:"room_name"`
-	OwnerID  string `json:"owner_id"`
+	RoomID       string   `json:"room_id"`
+	DispName     string   `json:"disp_name"`
+	Description  *string  `json:"description"`
+	Category     string   `json:"category"`
+	CreatedAt    string   `json:"created_at"`
+	AccessPolicy string   `json:"access_policy"`
+	OwnerID      *string  `json:"owner_id"`
+	Locale       []string `json:"locale"`
+	IsHomeRoom   bool     `json:"is_home_room"`
+	DesignerIDs  []string `json:"designer_ids"`
+	ModeratorIDs []string `json:"moderator_ids"`
 }
 
+// RoomResponse wraps a single room response
 type RoomResponse struct {
 	Room RoomData `json:"room"`
 }
 
+// GetRoom gets a room by ID
 func (w *WebAPI) GetRoom(ctx context.Context, roomID string) (*RoomData, error) {
 	var resp RoomResponse
 	if err := w.getJSON("/rooms/"+roomID, nil, &resp); err != nil {
@@ -120,6 +142,7 @@ func (w *WebAPI) GetRoom(ctx context.Context, roomID string) (*RoomData, error) 
 	return &resp.Room, nil
 }
 
+// RoomsListParams contains optional parameters for listing rooms
 type RoomsListParams struct {
 	StartsAfter string
 	EndsBefore  string
@@ -129,11 +152,16 @@ type RoomsListParams struct {
 	OwnerID     string
 }
 
+// RoomsListResponse contains a paginated list of rooms
 type RoomsListResponse struct {
-	Rooms []RoomData `json:"rooms"`
+	Rooms   []RoomData `json:"rooms"`
+	Total   int        `json:"total"`
+	FirstID string     `json:"first_id"`
+	LastID  string     `json:"last_id"`
 }
 
-func (w *WebAPI) GetRooms(ctx context.Context, params RoomsListParams) ([]RoomData, error) {
+// GetRooms lists rooms with optional filters
+func (w *WebAPI) GetRooms(ctx context.Context, params RoomsListParams) (*RoomsListResponse, error) {
 	q := url.Values{}
 	if params.StartsAfter != "" {
 		q.Set("starts_after", params.StartsAfter)
@@ -157,21 +185,33 @@ func (w *WebAPI) GetRooms(ctx context.Context, params RoomsListParams) ([]RoomDa
 	if err := w.getJSON("/rooms", q, &resp); err != nil {
 		return nil, err
 	}
-	return resp.Rooms, nil
+	return &resp, nil
 }
 
+// ItemData contains item information from the WebAPI
 type ItemData struct {
-	ItemID   string  `json:"item_id"`
-	ItemName string  `json:"item_name"`
-	Type     string  `json:"type"`
-	Rarity   *string `json:"rarity,omitempty"`
-	Category *string `json:"category,omitempty"`
+	ItemID              string   `json:"item_id"`
+	ItemName            string   `json:"item_name"`
+	Type                string   `json:"type"`
+	Category            string   `json:"category"`
+	Rarity              string   `json:"rarity"`
+	CreatedAt           string   `json:"created_at"`
+	IsPurchasable       bool     `json:"is_purchasable"`
+	IsTradable          bool     `json:"is_tradable"`
+	PopsSalePrice       int      `json:"pops_sale_price"`
+	GemsSalePrice       *int     `json:"gems_sale_price,omitempty"`
+	DescriptionKey      *string  `json:"description_key,omitempty"`
+	Keywords            []string `json:"keywords,omitempty"`
+	ImageURL            *string  `json:"image_url,omitempty"`
+	IconURL             *string  `json:"icon_url,omitempty"`
 }
 
+// ItemResponse wraps a single item response
 type ItemResponse struct {
 	Item ItemData `json:"item"`
 }
 
+// GetItem gets an item by ID
 func (w *WebAPI) GetItem(ctx context.Context, itemID string) (*ItemData, error) {
 	var resp ItemResponse
 	if err := w.getJSON("/items/"+itemID, nil, &resp); err != nil {
@@ -180,6 +220,7 @@ func (w *WebAPI) GetItem(ctx context.Context, itemID string) (*ItemData, error) 
 	return &resp.Item, nil
 }
 
+// ItemsListParams contains optional parameters for listing items
 type ItemsListParams struct {
 	StartsAfter string
 	EndsBefore  string
@@ -190,11 +231,16 @@ type ItemsListParams struct {
 	Category    string
 }
 
+// ItemsListResponse contains a paginated list of items
 type ItemsListResponse struct {
-	Items []ItemData `json:"items"`
+	Items   []ItemData `json:"items"`
+	Total   int        `json:"total"`
+	FirstID string     `json:"first_id"`
+	LastID  string     `json:"last_id"`
 }
 
-func (w *WebAPI) GetItems(ctx context.Context, params ItemsListParams) ([]ItemData, error) {
+// GetItems lists items with optional filters
+func (w *WebAPI) GetItems(ctx context.Context, params ItemsListParams) (*ItemsListResponse, error) {
 	q := url.Values{}
 	if params.StartsAfter != "" {
 		q.Set("starts_after", params.StartsAfter)
@@ -221,18 +267,28 @@ func (w *WebAPI) GetItems(ctx context.Context, params ItemsListParams) ([]ItemDa
 	if err := w.getJSON("/items", q, &resp); err != nil {
 		return nil, err
 	}
-	return resp.Items, nil
+	return &resp, nil
 }
 
+// GrabData contains grab bag information from the WebAPI
 type GrabData struct {
-	GrabID string `json:"grab_id"`
-	Title  string `json:"title"`
+	GrabID       string   `json:"grab_id"`
+	Title        string   `json:"title"`
+	Description  string   `json:"description"`
+	ItemIDs      []string `json:"item_ids"`
+	SalePrice    int      `json:"sale_price"`
+	SalePriceGems *int    `json:"sale_price_gems,omitempty"`
+	StartsAt     string   `json:"starts_at"`
+	EndsAt       string   `json:"ends_at"`
+	ImageURL     *string  `json:"image_url,omitempty"`
 }
 
+// GrabResponse wraps a single grab response
 type GrabResponse struct {
 	Grab GrabData `json:"grab"`
 }
 
+// GetGrab gets a grab bag by ID
 func (w *WebAPI) GetGrab(ctx context.Context, grabID string) (*GrabData, error) {
 	var resp GrabResponse
 	if err := w.getJSON("/grabs/"+grabID, nil, &resp); err != nil {
@@ -241,6 +297,7 @@ func (w *WebAPI) GetGrab(ctx context.Context, grabID string) (*GrabData, error) 
 	return &resp.Grab, nil
 }
 
+// GrabsListParams contains optional parameters for listing grab bags
 type GrabsListParams struct {
 	StartsAfter string
 	EndsBefore  string
@@ -249,11 +306,16 @@ type GrabsListParams struct {
 	Title       string
 }
 
+// GrabsListResponse contains a paginated list of grab bags
 type GrabsListResponse struct {
-	Grabs []GrabData `json:"grabs"`
+	Grabs   []GrabData `json:"grabs"`
+	Total   int        `json:"total"`
+	FirstID string     `json:"first_id"`
+	LastID  string     `json:"last_id"`
 }
 
-func (w *WebAPI) GetGrabs(ctx context.Context, params GrabsListParams) ([]GrabData, error) {
+// GetGrabs lists grab bags with optional filters
+func (w *WebAPI) GetGrabs(ctx context.Context, params GrabsListParams) (*GrabsListResponse, error) {
 	q := url.Values{}
 	if params.StartsAfter != "" {
 		q.Set("starts_after", params.StartsAfter)
@@ -274,19 +336,30 @@ func (w *WebAPI) GetGrabs(ctx context.Context, params GrabsListParams) ([]GrabDa
 	if err := w.getJSON("/grabs", q, &resp); err != nil {
 		return nil, err
 	}
-	return resp.Grabs, nil
+	return &resp, nil
 }
 
+// PostData contains post information from the WebAPI
 type PostData struct {
-	PostID   string `json:"post_id"`
-	AuthorID string `json:"author_id"`
-	Content  string `json:"content"`
+	PostID         string      `json:"post_id"`
+	AuthorID       string      `json:"author_id"`
+	CreatedAt      string      `json:"created_at"`
+	FileKey        *string     `json:"file_key"`
+	Type           string      `json:"type"`
+	Visibility     string      `json:"visibility"`
+	NumComments    int         `json:"num_comments"`
+	NumLikes       int         `json:"num_likes"`
+	NumReposts     int         `json:"num_reposts"`
+	Caption        *string     `json:"caption"`
+	FeaturedUserIDs []string   `json:"featured_user_ids"`
 }
 
+// PostResponse wraps a single post response
 type PostResponse struct {
 	Post PostData `json:"post"`
 }
 
+// GetPost gets a post by ID
 func (w *WebAPI) GetPost(ctx context.Context, postID string) (*PostData, error) {
 	var resp PostResponse
 	if err := w.getJSON("/posts/"+postID, nil, &resp); err != nil {
@@ -295,6 +368,7 @@ func (w *WebAPI) GetPost(ctx context.Context, postID string) (*PostData, error) 
 	return &resp.Post, nil
 }
 
+// PostsListParams contains optional parameters for listing posts
 type PostsListParams struct {
 	StartsAfter string
 	EndsBefore  string
@@ -303,11 +377,16 @@ type PostsListParams struct {
 	AuthorID    string
 }
 
+// PostsListResponse contains a paginated list of posts
 type PostsListResponse struct {
-	Posts []PostData `json:"posts"`
+	Posts   []PostData `json:"posts"`
+	Total   int        `json:"total"`
+	FirstID string     `json:"first_id"`
+	LastID  string     `json:"last_id"`
 }
 
-func (w *WebAPI) GetPosts(ctx context.Context, params PostsListParams) ([]PostData, error) {
+// GetPosts lists posts with optional filters
+func (w *WebAPI) GetPosts(ctx context.Context, params PostsListParams) (*PostsListResponse, error) {
 	q := url.Values{}
 	if params.StartsAfter != "" {
 		q.Set("starts_after", params.StartsAfter)
@@ -328,5 +407,5 @@ func (w *WebAPI) GetPosts(ctx context.Context, params PostsListParams) ([]PostDa
 	if err := w.getJSON("/posts", q, &resp); err != nil {
 		return nil, err
 	}
-	return resp.Posts, nil
+	return &resp, nil
 }

@@ -121,6 +121,7 @@ type SessionMetadata struct {
 	SDKVersion   *string          `json:"sdk_version,omitempty"`
 }
 
+// SessionUserEntry represents a user currently in the session/room
 type SessionUserEntry struct {
 	User     User             `json:"user"`
 	Position PositionOrAnchor `json:"position"`
@@ -173,7 +174,7 @@ type Error struct {
 	RID            *string `json:"rid,omitempty"`
 }
 
-// ChatEvent
+// ChatEvent is sent when a user sends a chat message
 type ChatEvent struct {
 	Type    string `json:"_type"`
 	User    User   `json:"user"`
@@ -181,7 +182,7 @@ type ChatEvent struct {
 	Whisper bool   `json:"whisper"`
 }
 
-// EmoteEvent
+// EmoteEvent is sent when a user performs an emote
 type EmoteEvent struct {
 	Type     string `json:"_type"`
 	User     User   `json:"user"`
@@ -189,7 +190,7 @@ type EmoteEvent struct {
 	Receiver *User  `json:"receiver,omitempty"`
 }
 
-// ReactionEvent
+// ReactionEvent is sent when a user reacts to another user
 type ReactionEvent struct {
 	Type     string `json:"_type"`
 	User     User   `json:"user"`
@@ -197,27 +198,27 @@ type ReactionEvent struct {
 	Receiver User   `json:"receiver"`
 }
 
-// UserJoinedEvent
+// UserJoinedEvent is sent when a user joins the room
 type UserJoinedEvent struct {
 	Type     string           `json:"_type"`
 	User     User             `json:"user"`
 	Position PositionOrAnchor `json:"position"`
 }
 
-// UserLeftEvent
+// UserLeftEvent is sent when a user leaves the room
 type UserLeftEvent struct {
 	Type string `json:"_type"`
 	User User   `json:"user"`
 }
 
-// UserMovedEvent
+// UserMovedEvent is sent when a user moves to a new position
 type UserMovedEvent struct {
 	Type     string           `json:"_type"`
 	User     User             `json:"user"`
 	Position PositionOrAnchor `json:"position"`
 }
 
-// TipReactionEvent
+// TipReactionEvent is sent when a user tips another user
 type TipReactionEvent struct {
 	Type     string  `json:"_type"`
 	Sender   User    `json:"sender"`
@@ -225,7 +226,7 @@ type TipReactionEvent struct {
 	Item     TipItem `json:"item"`
 }
 
-// ChannelEvent
+// ChannelEvent is sent when a channel message is received
 type ChannelEvent struct {
 	Type     string   `json:"_type"`
 	SenderID string   `json:"sender_id"`
@@ -233,14 +234,14 @@ type ChannelEvent struct {
 	Tags     []string `json:"tags"`
 }
 
-// VoiceEvent
+// VoiceEvent is sent when voice chat status changes
 type VoiceEvent struct {
 	Type        string            `json:"_type"`
 	Users       []UserVoiceStatus `json:"users"`
 	SecondsLeft int               `json:"seconds_left"`
 }
 
-// MessageEvent
+// MessageEvent is sent when a conversation message is received
 type MessageEvent struct {
 	Type              string `json:"_type"`
 	UserID            string `json:"user_id"`
@@ -248,7 +249,7 @@ type MessageEvent struct {
 	IsNewConversation bool   `json:"is_new_conversation"`
 }
 
-// RoomModeratedEvent
+// RoomModeratedEvent is sent when a moderation action occurs
 type RoomModeratedEvent struct {
 	Type           string `json:"_type"`
 	ModeratorID    string `json:"moderatorId"`
@@ -259,6 +260,7 @@ type RoomModeratedEvent struct {
 
 // --- Requests ---
 
+// ChatRequest is sent to send a chat message
 type ChatRequest struct {
 	Type          string  `json:"_type"`
 	Message       string  `json:"message"`
@@ -268,6 +270,7 @@ type ChatRequest struct {
 
 func (r ChatRequest) getRID() string { return r.RID }
 
+// EmoteRequest is sent to perform an emote
 type EmoteRequest struct {
 	Type         string  `json:"_type"`
 	EmoteID      string  `json:"emote_id"`
@@ -277,6 +280,7 @@ type EmoteRequest struct {
 
 func (r EmoteRequest) getRID() string { return r.RID }
 
+// ReactionRequest is sent to react to another user
 type ReactionRequest struct {
 	Type         string `json:"_type"`
 	Reaction     string `json:"reaction"`
@@ -286,6 +290,7 @@ type ReactionRequest struct {
 
 func (r ReactionRequest) getRID() string { return r.RID }
 
+// IndicatorRequest is sent to set the user's indicator icon
 type IndicatorRequest struct {
 	Type string  `json:"_type"`
 	Icon *string `json:"icon"`
@@ -294,6 +299,7 @@ type IndicatorRequest struct {
 
 func (r IndicatorRequest) getRID() string { return r.RID }
 
+// ChannelRequest is sent to broadcast a channel message
 type ChannelRequest struct {
 	Type    string   `json:"_type"`
 	Message string   `json:"message"`
@@ -303,6 +309,7 @@ type ChannelRequest struct {
 
 func (r ChannelRequest) getRID() string { return r.RID }
 
+// FloorHitRequest is sent to walk to a position
 type FloorHitRequest struct {
 	Type        string   `json:"_type"`
 	Destination Position `json:"destination"`
@@ -311,6 +318,7 @@ type FloorHitRequest struct {
 
 func (r FloorHitRequest) getRID() string { return r.RID }
 
+// AnchorHitRequest is sent to walk to an anchor point
 type AnchorHitRequest struct {
 	Type   string         `json:"_type"`
 	Anchor AnchorPosition `json:"anchor"`
@@ -319,6 +327,7 @@ type AnchorHitRequest struct {
 
 func (r AnchorHitRequest) getRID() string { return r.RID }
 
+// TeleportRequest is sent to teleport a user to a position
 type TeleportRequest struct {
 	Type        string   `json:"_type"`
 	UserID      string   `json:"user_id"`
@@ -328,6 +337,7 @@ type TeleportRequest struct {
 
 func (r TeleportRequest) getRID() string { return r.RID }
 
+// ModerateRoomRequest is sent to moderate a user in the room
 type ModerateRoomRequest struct {
 	Type             string `json:"_type"`
 	UserID           string `json:"user_id"`
@@ -338,6 +348,7 @@ type ModerateRoomRequest struct {
 
 func (r ModerateRoomRequest) getRID() string { return r.RID }
 
+// ChangeRoomPrivilegeRequest is sent to change a user's room permissions
 type ChangeRoomPrivilegeRequest struct {
 	Type        string          `json:"_type"`
 	UserID      string          `json:"user_id"`
@@ -347,6 +358,7 @@ type ChangeRoomPrivilegeRequest struct {
 
 func (r ChangeRoomPrivilegeRequest) getRID() string { return r.RID }
 
+// MoveUserToRoomRequest is sent to move a user to another room
 type MoveUserToRoomRequest struct {
 	Type   string `json:"_type"`
 	UserID string `json:"user_id"`
@@ -356,6 +368,7 @@ type MoveUserToRoomRequest struct {
 
 func (r MoveUserToRoomRequest) getRID() string { return r.RID }
 
+// InviteSpeakerRequest is sent to invite a user as a speaker
 type InviteSpeakerRequest struct {
 	Type   string `json:"_type"`
 	UserID string `json:"user_id"`
@@ -364,6 +377,7 @@ type InviteSpeakerRequest struct {
 
 func (r InviteSpeakerRequest) getRID() string { return r.RID }
 
+// RemoveSpeakerRequest is sent to remove a user as a speaker
 type RemoveSpeakerRequest struct {
 	Type   string `json:"_type"`
 	UserID string `json:"user_id"`
@@ -377,6 +391,7 @@ type KeepaliveRequest struct {
 	RID  *string `json:"rid,omitempty"`
 }
 
+// SendMessageRequest is sent to send a direct message
 type SendMessageRequest struct {
 	Type           string  `json:"_type"`
 	ConversationID string  `json:"conversation_id"`
@@ -390,6 +405,7 @@ type SendMessageRequest struct {
 
 func (r SendMessageRequest) getRID() string { return r.RID }
 
+// SendBulkMessageRequest is sent to send a bulk message to multiple users
 type SendBulkMessageRequest struct {
 	Type        string   `json:"_type"`
 	UserIDs     []string `json:"user_ids"`
@@ -402,6 +418,7 @@ type SendBulkMessageRequest struct {
 
 func (r SendBulkMessageRequest) getRID() string { return r.RID }
 
+// LeaveConversationRequest is sent to leave a conversation
 type LeaveConversationRequest struct {
 	Type           string `json:"_type"`
 	ConversationID string `json:"conversation_id"`
@@ -410,6 +427,7 @@ type LeaveConversationRequest struct {
 
 func (r LeaveConversationRequest) getRID() string { return r.RID }
 
+// BuyVoiceTimeRequest is sent to purchase voice time
 type BuyVoiceTimeRequest struct {
 	Type          string `json:"_type"`
 	PaymentMethod string `json:"payment_method"`
@@ -418,6 +436,7 @@ type BuyVoiceTimeRequest struct {
 
 func (r BuyVoiceTimeRequest) getRID() string { return r.RID }
 
+// BuyRoomBoostRequest is sent to purchase a room boost
 type BuyRoomBoostRequest struct {
 	Type          string `json:"_type"`
 	PaymentMethod string `json:"payment_method"`
@@ -427,6 +446,7 @@ type BuyRoomBoostRequest struct {
 
 func (r BuyRoomBoostRequest) getRID() string { return r.RID }
 
+// TipUserRequest is sent to tip a user with gold bars
 type TipUserRequest struct {
 	Type    string `json:"_type"`
 	UserID  string `json:"user_id"`
@@ -436,6 +456,7 @@ type TipUserRequest struct {
 
 func (r TipUserRequest) getRID() string { return r.RID }
 
+// SetOutfitRequest is sent to set the bot's outfit
 type SetOutfitRequest struct {
 	Type   string `json:"_type"`
 	Outfit []Item `json:"outfit"`
@@ -444,6 +465,7 @@ type SetOutfitRequest struct {
 
 func (r SetOutfitRequest) getRID() string { return r.RID }
 
+// BuyItemRequest is sent to purchase an item
 type BuyItemRequest struct {
 	Type   string `json:"_type"`
 	ItemID string `json:"item_id"`
@@ -452,6 +474,7 @@ type BuyItemRequest struct {
 
 func (r BuyItemRequest) getRID() string { return r.RID }
 
+// GetRoomUsersRequest is sent to request the room user list
 type GetRoomUsersRequest struct {
 	Type string `json:"_type"`
 	RID  string `json:"rid"`
@@ -459,12 +482,14 @@ type GetRoomUsersRequest struct {
 
 func (r GetRoomUsersRequest) getRID() string { return r.RID }
 
+// GetRoomUsersResponse contains the room user list
 type GetRoomUsersResponse struct {
 	Type    string             `json:"_type"`
 	Content []SessionUserEntry `json:"content"`
 	RID     string             `json:"rid"`
 }
 
+// GetWalletRequest is sent to request the wallet balance
 type GetWalletRequest struct {
 	Type string `json:"_type"`
 	RID  string `json:"rid"`
@@ -472,12 +497,14 @@ type GetWalletRequest struct {
 
 func (r GetWalletRequest) getRID() string { return r.RID }
 
+// GetWalletResponse contains the wallet balance
 type GetWalletResponse struct {
 	Type    string         `json:"_type"`
 	Content []CurrencyItem `json:"content"`
 	RID     string         `json:"rid"`
 }
 
+// GetRoomPrivilegeRequest is sent to request a user's room privileges
 type GetRoomPrivilegeRequest struct {
 	Type   string `json:"_type"`
 	UserID string `json:"user_id"`
@@ -486,12 +513,14 @@ type GetRoomPrivilegeRequest struct {
 
 func (r GetRoomPrivilegeRequest) getRID() string { return r.RID }
 
+// GetRoomPrivilegeResponse contains a user's room permissions
 type GetRoomPrivilegeResponse struct {
 	Type    string          `json:"_type"`
 	Content RoomPermissions `json:"content"`
 	RID     string          `json:"rid"`
 }
 
+// CheckVoiceChatRequest is sent to check voice chat status
 type CheckVoiceChatRequest struct {
 	Type string `json:"_type"`
 	RID  string `json:"rid"`
@@ -499,6 +528,7 @@ type CheckVoiceChatRequest struct {
 
 func (r CheckVoiceChatRequest) getRID() string { return r.RID }
 
+// CheckVoiceChatResponse contains voice chat status information
 type CheckVoiceChatResponse struct {
 	Type         string            `json:"_type"`
 	SecondsLeft  int               `json:"seconds_left"`
@@ -507,6 +537,7 @@ type CheckVoiceChatResponse struct {
 	RID          string            `json:"rid"`
 }
 
+// GetUserOutfitRequest is sent to request a user's outfit
 type GetUserOutfitRequest struct {
 	Type   string `json:"_type"`
 	UserID string `json:"user_id"`
@@ -515,12 +546,14 @@ type GetUserOutfitRequest struct {
 
 func (r GetUserOutfitRequest) getRID() string { return r.RID }
 
+// GetUserOutfitResponse contains a user's outfit
 type GetUserOutfitResponse struct {
 	Type   string `json:"_type"`
 	Outfit []Item `json:"outfit"`
 	RID    string `json:"rid"`
 }
 
+// GetBackpackRequest is sent to request a user's backpack
 type GetBackpackRequest struct {
 	Type   string `json:"_type"`
 	UserID string `json:"user_id"`
@@ -529,12 +562,14 @@ type GetBackpackRequest struct {
 
 func (r GetBackpackRequest) getRID() string { return r.RID }
 
+// GetBackpackResponse contains a user's backpack contents
 type GetBackpackResponse struct {
 	Type     string         `json:"_type"`
 	Backpack map[string]int `json:"backpack"`
 	RID      string         `json:"rid"`
 }
 
+// ChangeBackpackRequest is sent to modify a user's backpack
 type ChangeBackpackRequest struct {
 	Type    string         `json:"_type"`
 	UserID  string         `json:"user_id"`
@@ -544,6 +579,7 @@ type ChangeBackpackRequest struct {
 
 func (r ChangeBackpackRequest) getRID() string { return r.RID }
 
+// GetConversationsRequest is sent to request the conversation list
 type GetConversationsRequest struct {
 	Type      string  `json:"_type"`
 	NotJoined bool    `json:"not_joined"`
@@ -553,6 +589,7 @@ type GetConversationsRequest struct {
 
 func (r GetConversationsRequest) getRID() string { return r.RID }
 
+// GetConversationsResponse contains the conversation list
 type GetConversationsResponse struct {
 	Type          string         `json:"_type"`
 	Conversations []Conversation `json:"conversations"`
@@ -560,6 +597,7 @@ type GetConversationsResponse struct {
 	RID           string         `json:"rid"`
 }
 
+// Conversation represents a DM or group conversation
 type Conversation struct {
 	ID          string   `json:"id"`
 	DidJoin     bool     `json:"did_join"`
@@ -571,6 +609,7 @@ type Conversation struct {
 	OwnerID     *string  `json:"owner_id,omitempty"`
 }
 
+// GetMessagesRequest is sent to request messages in a conversation
 type GetMessagesRequest struct {
 	Type           string `json:"_type"`
 	ConversationID string `json:"conversation_id"`
@@ -580,12 +619,14 @@ type GetMessagesRequest struct {
 
 func (r GetMessagesRequest) getRID() string { return r.RID }
 
+// GetMessagesResponse contains the message list for a conversation
 type GetMessagesResponse struct {
 	Type     string    `json:"_type"`
 	Messages []Message `json:"messages"`
 	RID      string    `json:"rid"`
 }
 
+// Message represents a single message in a conversation
 type Message struct {
 	MessageID      string  `json:"message_id"`
 	ConversationID string  `json:"conversation_id"`
@@ -595,6 +636,7 @@ type Message struct {
 	Category       string  `json:"category"`
 }
 
+// GetInventoryRequest is sent to request the bot's inventory
 type GetInventoryRequest struct {
 	Type string `json:"_type"`
 	RID  string `json:"rid"`
@@ -602,12 +644,14 @@ type GetInventoryRequest struct {
 
 func (r GetInventoryRequest) getRID() string { return r.RID }
 
+// GetInventoryResponse contains the bot's inventory items
 type GetInventoryResponse struct {
 	Type  string `json:"_type"`
 	Items []Item `json:"items"`
 	RID   string `json:"rid"`
 }
 
+// MessageMedia represents media content attached to a message
 type MessageMedia struct {
 	Type                 string `json:"type"`
 	Width                int    `json:"width"`
@@ -619,6 +663,7 @@ type MessageMedia struct {
 	ThumbnailURL         string `json:"thumbnailUrl,omitempty"`
 }
 
+// MessageMediaRequest is sent to upload message media
 type MessageMediaRequest struct {
 	Type  string       `json:"_type"`
 	Media MessageMedia `json:"media"`
@@ -627,6 +672,7 @@ type MessageMediaRequest struct {
 
 func (r MessageMediaRequest) getRID() string { return r.RID }
 
+// MessageMediaResponse contains upload URLs for message media
 type MessageMediaResponse struct {
 	Type               string       `json:"_type"`
 	Media              MessageMedia `json:"media"`
@@ -635,24 +681,28 @@ type MessageMediaResponse struct {
 	RID                string       `json:"rid"`
 }
 
+// BuyVoiceTimeResponse contains the voice time purchase result
 type BuyVoiceTimeResponse struct {
 	Type   string `json:"_type"`
 	Result string `json:"result"`
 	RID    string `json:"rid"`
 }
 
+// BuyRoomBoostResponse contains the room boost purchase result
 type BuyRoomBoostResponse struct {
 	Type   string `json:"_type"`
 	Result string `json:"result"`
 	RID    string `json:"rid"`
 }
 
+// TipUserResponse contains the tip result
 type TipUserResponse struct {
 	Type   string `json:"_type"`
 	Result string `json:"result"`
 	RID    string `json:"rid"`
 }
 
+// BuyItemResponse contains the item purchase result
 type BuyItemResponse struct {
 	Type   string `json:"_type"`
 	Result string `json:"result"`
