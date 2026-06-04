@@ -20,7 +20,7 @@ import (
     "log"
     "os"
 
-    "highrise-go/highrise"
+    "github.com/brianrstp/highrise-go/highrise"
 )
 
 type MyBot struct {
@@ -346,7 +346,7 @@ directly instead of embedding `Bot`.
 
 ## Testing
 
-Run all tests (74+ tests covering actions, rate limiting, models, WebAPI, middleware, and connection state):
+Run all tests (72 tests covering actions, rate limiting, models, WebAPI, middleware, and connection state):
 
 ```bash
 go test -v -count=1 ./highrise/
@@ -358,4 +358,4 @@ go test -v -count=1 ./highrise/
 - Keepalive every 15 seconds
 - Reconnection with exponential backoff (1s → 30s max)
 - WebSocket compression enabled (reduces bandwidth)
-- Module name: `highrise-go` (local module, no external domain dependency)
+- Module name: `github.com/brianrstp/highrise-go`
