@@ -639,7 +639,10 @@ func (c *Client) sendRequest(ctx context.Context, req any) ([]byte, error) {
 	}
 
 	// Apply default action timeout if not already set in context
-	ctx = c.withActionTimeout(ctx)
+	ctx, cancel := c.withActionTimeout(ctx)
+	if cancel != nil {
+		defer cancel()
+	}
 
 	ch := make(chan []byte, 1)
 	c.pendingResp.Store(rid, ch)
@@ -662,15 +665,14 @@ func (c *Client) sendRequest(ctx context.Context, req any) ([]byte, error) {
 	return resp, nil
 }
 
-func (c *Client) withActionTimeout(ctx context.Context) context.Context {
+func (c *Client) withActionTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	if c.actionTimeout <= 0 {
-		return ctx
+		return ctx, nil
 	}
 	if _, hasDeadline := ctx.Deadline(); hasDeadline {
-		return ctx
+		return ctx, nil
 	}
-	ctx2, _ := context.WithTimeout(ctx, c.actionTimeout)
-	return ctx2
+	return context.WithTimeout(ctx, c.actionTimeout)
 }
 
 func (c *Client) waitResponse(ctx context.Context, ch chan []byte, rid, reqType string) ([]byte, error) {
