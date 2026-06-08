@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -324,7 +325,7 @@ func (h *connectionStateHandler) OnConnectionChange(ctx context.Context, state C
 }
 
 type middlewareRecorder struct {
-	called bool
+	called atomic.Bool
 }
 
 func TestActions_Middleware(t *testing.T) {
@@ -347,7 +348,7 @@ func TestActions_Middleware(t *testing.T) {
 	c := NewClient(h)
 	c.url = wsURL(ts)
 	c.Use(func(next func()) {
-		rec.called = true
+		rec.called.Store(true)
 		next()
 	})
 
@@ -357,7 +358,7 @@ func TestActions_Middleware(t *testing.T) {
 	go c.Run(ctx, "room1", "token1")
 	time.Sleep(300 * time.Millisecond)
 
-	if !rec.called {
+	if !rec.called.Load() {
 		t.Fatal("middleware was not called on OnStart event")
 	}
 
