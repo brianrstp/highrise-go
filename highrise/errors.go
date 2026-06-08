@@ -18,11 +18,17 @@ func NewResponseError(msg string) *ResponseError {
 }
 
 // ConnectionError wraps errors from the WebSocket connection layer.
+// It includes the request type and RID for easier debugging.
 type ConnectionError struct {
-	Err error
+	ReqType string
+	RID     string
+	Err     error
 }
 
 func (e *ConnectionError) Error() string {
+	if e.ReqType != "" {
+		return fmt.Sprintf("connection error [%s/%s]: %v", e.ReqType, e.RID, e.Err)
+	}
 	return fmt.Sprintf("connection error: %v", e.Err)
 }
 

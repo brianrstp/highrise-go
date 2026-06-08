@@ -36,13 +36,15 @@ import (
 var keepaliveInterval = 15 * time.Second
 
 const (
-	defaultURL           = "wss://highrise.game/web/botapi"
-	sdkVersion           = "0.1.0"
-	readTimeout          = 20 * time.Second
-	reconnectBaseDelay   = 1 * time.Second
-	reconnectMaxDelay    = 30 * time.Second
-	responseQueueTimeout = 30 * time.Second
-	maxEventWorkers      = 64
+	defaultURL            = "wss://highrise.game/web/botapi"
+	defaultActionTimeout  = 10 * time.Second
+	sdkVersion            = "0.1.0"
+	readTimeout           = 20 * time.Second
+	reconnectBaseDelay    = 1 * time.Second
+	reconnectMaxDelay     = 30 * time.Second
+	responseQueueTimeout  = 30 * time.Second
+	maxEventWorkers       = 64
+	defaultWriteDeadline  = 10 * time.Second
 )
 
 type reqRIDer interface {
@@ -109,6 +111,22 @@ func WithSDKVersion(version string) ClientOption {
 	}
 }
 
+// WithEvents sets a custom event subscription list.
+// Default: "chat,emote,reaction,user_joined,user_left,user_moved,tip_reaction,voice,channel,message,moderation"
+func WithEvents(events string) ClientOption {
+	return func(c *Client) {
+		c.eventFilter = events
+	}
+}
+
+// WithActionTimeout sets a default context timeout for every action call.
+// Default: 10s. Set to 0 to disable (use caller's context as-is).
+func WithActionTimeout(timeout time.Duration) ClientOption {
+	return func(c *Client) {
+		c.actionTimeout = timeout
+	}
+}
+
 // Client is a WebSocket client for the Highrise Bot API.
 // It manages the connection, event routing, rate limiting, and reconnection logic.
 type Client struct {
@@ -127,23 +145,31 @@ type Client struct {
 	reconnectDelay time.Duration
 	sdkVersion     string
 
-	eventSem    chan struct{}
-	rateLimiter *rateLimiter
-	log         Logger
-	state       ConnectionState
-	middlewares []Middleware
+	eventSem      chan struct{}
+	rateLimiter   *rateLimiter
+	log           Logger
+	state         ConnectionState
+	middlewares   []Middleware
+	eventFilter   string
+	actionTimeout time.Duration
+
+	totalEvents atomic.Int64
+	totalActions atomic.Int64
+	totalErrors atomic.Int64
+	totalReconnects atomic.Int64
 }
 
 // NewClient creates a new Client with the given BotHandler and options
 func NewClient(handler BotHandler, opts ...ClientOption) *Client {
 	c := &Client{
-		url:         defaultURL,
-		handler:     handler,
-		stopCh:      make(chan struct{}),
-		sdkVersion:  sdkVersion,
-		eventSem:    make(chan struct{}, maxEventWorkers),
-		rateLimiter: newRateLimiter(),
-		log:         log.Default(),
+		url:           defaultURL,
+		handler:       handler,
+		stopCh:        make(chan struct{}),
+		sdkVersion:    sdkVersion,
+		eventSem:      make(chan struct{}, maxEventWorkers),
+		rateLimiter:   newRateLimiter(),
+		log:           log.Default(),
+		actionTimeout: defaultActionTimeout,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -156,6 +182,31 @@ func NewClient(handler BotHandler, opts ...ClientOption) *Client {
 // Middleware are executed in the order they are added.
 func (c *Client) Use(mw Middleware) {
 	c.middlewares = append(c.middlewares, mw)
+}
+
+// IsConnected returns true if the client is currently connected
+func (c *Client) IsConnected() bool {
+	return c.state == StateConnected
+}
+
+// IsStopped returns true if Stop has been called
+func (c *Client) IsStopped() bool {
+	select {
+	case <-c.stopCh:
+		return true
+	default:
+		return false
+	}
+}
+
+// Metrics returns a snapshot of internal counters
+func (c *Client) Metrics() map[string]int64 {
+	return map[string]int64{
+		"events":    c.totalEvents.Load(),
+		"actions":   c.totalActions.Load(),
+		"errors":    c.totalErrors.Load(),
+		"reconnects": c.totalReconnects.Load(),
+	}
 }
 
 func (c *Client) setState(state ConnectionState) {
@@ -178,6 +229,9 @@ func (c *Client) nextReqID() int64 {
 }
 
 func (c *Client) subscribeEvents() string {
+	if c.eventFilter != "" {
+		return c.eventFilter
+	}
 	return "chat,emote,reaction,user_joined,user_left,user_moved,tip_reaction,voice,channel,message,moderation"
 }
 
@@ -186,6 +240,7 @@ func (c *Client) subscribeEvents() string {
 func (c *Client) Run(ctx context.Context, roomID, apiToken string) error {
 	c.roomID = roomID
 	c.apiToken = apiToken
+	c.totalReconnects.Store(0)
 
 	if bs, ok := c.handler.(HasBeforeStart); ok {
 		bs.BeforeStart(ctx)
@@ -204,6 +259,7 @@ func (c *Client) Run(ctx context.Context, roomID, apiToken string) error {
 		if err := c.connect(ctx); err != nil {
 			c.log.Printf("Connection failed: %v, reconnecting...", err)
 			c.backoffSleep(ctx)
+			c.totalReconnects.Add(1)
 			continue
 		}
 		c.setState(StateConnected)
@@ -221,6 +277,7 @@ func (c *Client) Run(ctx context.Context, roomID, apiToken string) error {
 			return nil
 		default:
 			c.log.Printf("Disconnected, reconnecting...")
+			c.totalReconnects.Add(1)
 			c.setState(StateReconnecting)
 			c.backoffSleep(ctx)
 			c.setState(StateDisconnected)
@@ -270,8 +327,8 @@ func (c *Client) connect(ctx context.Context) error {
 	header.Set("user-agent", "highrise-go-bot-sdk/"+c.sdkVersion)
 
 	dialer := websocket.Dialer{
-		HandshakeTimeout:   10 * time.Second,
-		EnableCompression:  false,
+		HandshakeTimeout:  10 * time.Second,
+		EnableCompression: true,
 	}
 
 	conn, _, err := dialer.DialContext(ctx, urlStr, header)
@@ -280,6 +337,10 @@ func (c *Client) connect(ctx context.Context) error {
 	}
 
 	conn.SetReadLimit(1 << 20)
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(readTimeout))
+		return nil
+	})
 	c.conn = conn
 	return nil
 }
@@ -347,6 +408,7 @@ func (c *Client) handleMessage(ctx context.Context, data []byte) {
 	}
 
 	if envelope.RID == nil {
+		c.totalEvents.Add(1)
 		c.routeEvent(ctx, envelope.Type, data)
 	}
 }
@@ -509,6 +571,7 @@ func (c *Client) routeEvent(ctx context.Context, msgType string, data []byte) {
 			c.log.Printf("Failed to decode Error: %v", err)
 			return
 		}
+		c.totalErrors.Add(1)
 		c.log.Printf("Server error: %s", errMsg.Message)
 		if h, ok := c.handler.(HasOnError); ok {
 			c.dispatchEvent(func() { h.OnError(ctx, errMsg) })
@@ -549,7 +612,7 @@ func (c *Client) writeJSON(v any) error {
 	if c.conn == nil {
 		return fmt.Errorf("not connected")
 	}
-	c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	c.conn.SetWriteDeadline(time.Now().Add(defaultWriteDeadline))
 	data, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("marshal: %w", err)
@@ -564,35 +627,85 @@ func (c *Client) sendRequest(ctx context.Context, req any) ([]byte, error) {
 	}
 	rid := ridder.getRID()
 
-	if t := extractType(req); t != "" {
-		if err := c.rateLimiter.acquire(ctx, t); err != nil {
+	reqType := extractType(req)
+	if reqType != "" {
+		if err := c.rateLimiter.acquire(ctx, reqType); err != nil {
 			return nil, err
 		}
 	}
+
+	// Apply default action timeout if not already set in context
+	ctx = c.withActionTimeout(ctx)
 
 	ch := make(chan []byte, 1)
 	c.pendingResp.Store(rid, ch)
 	defer c.pendingResp.Delete(rid)
 
 	if err := c.writeJSON(req); err != nil {
-		return nil, &ConnectionError{Err: err}
+		return nil, &ConnectionError{
+			ReqType: reqType,
+			RID:     rid,
+			Err:     err,
+		}
 	}
 
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case resp := <-ch:
-		var errMsg struct {
-			Type    string `json:"_type"`
-			Message string `json:"message"`
-		}
-		if json.Unmarshal(resp, &errMsg) == nil && errMsg.Type == "Error" {
-			return nil, NewResponseError(errMsg.Message)
-		}
-		return resp, nil
-	case <-time.After(responseQueueTimeout):
-		return nil, NewResponseError("request timed out")
+	c.totalActions.Add(1)
+
+	resp, err := c.waitResponse(ctx, ch, rid, reqType)
+	if err != nil {
+		return nil, err
 	}
+	return resp, nil
+}
+
+func (c *Client) withActionTimeout(ctx context.Context) context.Context {
+	if c.actionTimeout <= 0 {
+		return ctx
+	}
+	if _, hasDeadline := ctx.Deadline(); hasDeadline {
+		return ctx
+	}
+	ctx2, _ := context.WithTimeout(ctx, c.actionTimeout)
+	return ctx2
+}
+
+func (c *Client) waitResponse(ctx context.Context, ch chan []byte, rid, reqType string) ([]byte, error) {
+	for attempt := 0; attempt < 2; attempt++ {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("%s[%s]: %w", reqType, rid, ctx.Err())
+		case <-c.stopCh:
+			return nil, NewResponseError(fmt.Sprintf("%s[%s]: client stopped", reqType, rid))
+		case resp := <-ch:
+			var errMsg struct {
+				Type    string `json:"_type"`
+				Message string `json:"message"`
+			}
+			if json.Unmarshal(resp, &errMsg) == nil && errMsg.Type == "Error" {
+				return nil, NewResponseError(errMsg.Message)
+			}
+			return resp, nil
+		case <-time.After(responseQueueTimeout):
+			if attempt == 0 {
+				c.log.Printf("%s[%s]: timeout, retrying...", reqType, rid)
+				if err := c.writeJSON(struct {
+					Type string `json:"_type"`
+					RID  string `json:"rid"`
+				}{Type: reqType, RID: rid}); err != nil {
+					return nil, &ConnectionError{
+						ReqType: reqType,
+						RID:     rid,
+						Err:     err,
+					}
+				}
+				continue
+			}
+			return nil, NewResponseError(
+				fmt.Sprintf("%s[%s]: request timed out after retry", reqType, rid),
+			)
+		}
+	}
+	return nil, NewResponseError(fmt.Sprintf("%s[%s]: unexpected exit", reqType, rid))
 }
 
 // Highrise returns the Highrise action interface for this client
