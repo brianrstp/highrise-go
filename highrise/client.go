@@ -437,6 +437,10 @@ func (c *Client) dispatchEvent(fn func()) {
 }
 
 func (c *Client) routeEvent(ctx context.Context, msgType string, data []byte) {
+	if h, ok := c.handler.(HasOnAnyEvent); ok {
+		c.dispatchEvent(func() { h.OnAnyEvent(ctx, msgType, data) })
+	}
+
 	switch msgType {
 	case "SessionMetadata":
 		var meta SessionMetadata

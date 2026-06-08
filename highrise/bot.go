@@ -110,6 +110,14 @@ type HasOnError interface {
 	OnError(ctx context.Context, err Error)
 }
 
+// HasOnAnyEvent is called for every event received from the server, before the
+// specific typed handler. eventType is the raw event type string ("ChatEvent",
+// "UserJoinedEvent", etc.) and data is the full JSON payload.
+// Useful for logging, metrics, or handling unknown event types.
+type HasOnAnyEvent interface {
+	OnAnyEvent(ctx context.Context, eventType string, data []byte)
+}
+
 // HasOnConnectionChange is called when the connection state changes.
 type HasOnConnectionChange interface {
 	OnConnectionChange(ctx context.Context, state ConnectionState)
@@ -141,4 +149,5 @@ func (b *Bot) OnChannel(ctx context.Context, senderID, message string, tags []st
 func (b *Bot) OnMessage(ctx context.Context, userID, conversationID string, isNewConversation bool) {}
 func (b *Bot) OnModerate(ctx context.Context, moderatorID, targetUserID, moderationType string, duration *int) {
 }
+func (b *Bot) OnAnyEvent(ctx context.Context, eventType string, data []byte) {}
 func (b *Bot) OnConnectionChange(ctx context.Context, state ConnectionState) {}
