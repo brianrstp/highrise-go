@@ -5,7 +5,7 @@ Highrise Bot SDK for Go. Port of the official [python-bot-sdk](https://github.co
 ## Installation
 
 ```bash
-go get github.com/gorilla/websocket
+go get github.com/brianrstp/highrise-go@latest
 ```
 
 ## Quick Start
@@ -70,16 +70,27 @@ go run main.go <room_id> <api_token>
 
 ```
 highrise-go/
+├── .github/workflows/
+│   └── ci.yml            # GitHub Actions CI (build, vet, test, benchmark)
 ├── highrise/
-│   ├── bot.go        # Bot struct + handler interfaces
-│   ├── client.go     # WebSocket client + event routing
-│   ├── models.go     # All data types, requests, responses
-│   ├── actions.go    # Action methods (chat, walk, teleport, etc.)
-│   ├── webapi.go     # REST API client
-│   ├── errors.go     # Error types
-│   └── ratelimit.go  # Sliding window rate limiter
-├── cmd/highrise-bot/
-│   └── main.go       # Example bot
+│   ├── bot.go            # Bot struct + handler interfaces
+│   ├── client.go         # WebSocket client + event routing + middleware + metrics
+│   ├── models.go         # All data types, requests, responses
+│   ├── actions.go        # Action methods (chat, walk, teleport, etc.)
+│   ├── webapi.go         # REST API client
+│   ├── errors.go         # Error types (ResponseError, ConnectionError)
+│   ├── ratelimit.go      # Sliding window rate limiter
+│   ├── actions_test.go   # Integration tests for actions
+│   ├── client_test.go    # WebSocket client tests (OnAnyEvent, routing, etc.)
+│   ├── models_test.go    # JSON serialization tests
+│   ├── ratelimit_test.go # Rate limiter unit tests
+│   ├── webapi_test.go    # REST API client tests
+│   └── benchmark_test.go # Benchmarks (marshal, unmarshal, rate limiter, etc.)
+├── cmd/
+│   ├── dm-bot/           # DM bot example
+│   ├── moderation-bot/   # Moderation bot example
+│   └── economy-bot/      # Economy bot example
+├── DOCUMENTS.md           # Blog-format documentation
 └── README.md
 ```
 
@@ -88,9 +99,10 @@ highrise-go/
 All handlers are **optional** — override only the methods you need:
 
 | Handler | Event |
-|---|---|
+|---|---|---|
 | `BeforeStart()` | Called before connection, useful for setup |
 | `OnStart(session)` | Connection established, session metadata received |
+| `OnAnyEvent(eventType, data)` | **Every** event (raw type + JSON bytes), fires before typed handler |
 | `OnChat(user, message)` | Public room chat |
 | `OnWhisper(user, message)` | Private whisper |
 | `OnUserJoin(user, position)` | User entered the room |
@@ -104,6 +116,7 @@ All handlers are **optional** — override only the methods you need:
 | `OnMessage(userID, conversationID, isNew)` | Inbox message |
 | `OnModerate(moderatorID, targetUserID, type, duration)` | Room moderation |
 | `OnError(err)` | Server error received |
+| `OnConnectionChange(state)` | Connection state changed |
 
 Example:
 
@@ -346,16 +359,47 @@ directly instead of embedding `Bot`.
 
 ## Testing
 
-Run all tests (72 tests covering actions, rate limiting, models, WebAPI, middleware, and connection state):
-
 ```bash
+# Run all tests
 go test -v -count=1 ./highrise/
+
+# Run benchmarks
+go test -bench=. -benchmem -count=1 ./highrise/
+
+# Run with race detector (Linux only — requires gcc)
+go test -race -count=1 ./highrise/
 ```
+
+## Metrics
+
+Built-in counters via `client.Metrics()`:
+
+```go
+m := client.Metrics()
+fmt.Printf("Events: %d, Actions: %d, Errors: %d, Reconnects: %d\n",
+    m["events"], m["actions"], m["errors"], m["reconnects"])
+```
+
+## OnAnyEvent
+
+Log every event without implementing specific handlers:
+
+```go
+func (b *MyBot) OnAnyEvent(ctx context.Context, eventType string, data []byte) {
+    log.Printf("Event: %s — %s", eventType, string(data))
+}
+```
+
+Fires for all events (including unknown types) before the typed handler.
 
 ## Notes
 
 - WebSocket URL: `wss://highrise.game/web/botapi`
 - Keepalive every 15 seconds
-- Reconnection with exponential backoff (1s → 30s max)
-- WebSocket compression enabled (reduces bandwidth)
+- Reconnection with exponential backoff (1s → 30s max) + jitter
+- TCP write deadline (10s), read deadline (20s), pong handler extend
+- Rate limiter: sliding window per action + global limit
+- Panic recovery: all handler panics are caught and logged
+- Event semaphore: non-blocking dispatch, drops when pool is full
+- `ConnectionError` includes `ReqType` and `RID` for debugging
 - Module name: `github.com/brianrstp/highrise-go`
