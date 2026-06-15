@@ -1,22 +1,22 @@
 # highrise-go
 
-Go SDK untuk [Highrise Bot API](https://highrise.game). Menyediakan WebSocket client untuk real-time bot actions (chat, walk, teleport, dll), event handler interfaces, rate limiting, middleware system, dan REST client untuk Highrise WebAPI.
+Go SDK for the [Highrise Bot API](https://highrise.game). Provides a WebSocket client for real-time bot actions (chat, walk, teleport, etc.), event handler interfaces, rate limiting, middleware system, and a REST client for the Highrise WebAPI.
 
-## Fitur
+## Features
 
-- **WebSocket Client** - Koneksi real-time ke Highrise rooms dengan auto-reconnect (exponential backoff + jitter)
-- **30+ Bot Actions** - Chat, whisper, walk, teleport, emote, moderate, tip, buy items, kelola outfit, dan banyak lagi
-- **Event Handler** - 14 event handlers (chat, join, leave, move, emote, reaction, tip, whisper, voice, channel, DM, moderation)
-- **Middleware System** - Wrap setiap event handler dengan custom logic (logging, metrics, auth)
-- **Rate Limiting** - Sliding window rate limiter otomatis berdasarkan server-sent limits
-- **REST API Client** - Akses Highrise WebAPI untuk users, rooms, items, grab bags, dan posts
-- **Context-Aware** - Semua methods mendukung `context.Context` untuk cancellation dan timeout
-- **Connection State** - Monitor status koneksi (Disconnected, Connecting, Connected, Reconnecting)
-- **Metrics** - Counter events, actions, errors, dan reconnects
-- **Worker Pool** - Bounded goroutine pool (max 64) untuk event handling
-- **JSON Pool** - Buffer reuse via `sync.Pool` untuk mengurangi memory allocations
+- **WebSocket Client** - Real-time connection to Highrise rooms with auto-reconnect (exponential backoff + jitter)
+- **30+ Bot Actions** - Chat, whisper, walk, teleport, emote, moderate, tip, buy items, manage outfits, and more
+- **Event Handlers** - 14 event handlers (chat, join, leave, move, emote, reaction, tip, whisper, voice, channel, DM, moderation)
+- **Middleware System** - Wrap every event handler with custom logic (logging, metrics, auth)
+- **Rate Limiting** - Sliding window rate limiter automatically applied from server-sent limits
+- **REST API Client** - Access Highrise WebAPI for users, rooms, items, grab bags, and posts
+- **Context-Aware** - All methods accept `context.Context` for cancellation and timeouts
+- **Connection State** - Monitor connection status (Disconnected, Connecting, Connected, Reconnecting)
+- **Metrics** - Counters for events, actions, errors, and reconnects
+- **Worker Pool** - Bounded goroutine pool (max 64) for event handling
+- **JSON Pool** - Buffer reuse via `sync.Pool` to reduce memory allocations
 
-## Instalasi
+## Installation
 
 ```bash
 go get github.com/brianrstp/highrise-go
@@ -62,13 +62,13 @@ func main() {
 }
 ```
 
-Jalankan:
+Run it:
 
 ```bash
 go run . <room_id> <api_token>
 ```
 
-## Arsitektur
+## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -104,199 +104,199 @@ go run . <room_id> <api_token>
 
 ## Event Handlers
 
-### Bot Struct (Embed untuk Default No-Op)
+### Bot Struct (Embed for Default No-Op)
 
-Embed `highrise.Bot` di struct bot kamu. Semua event handler akan memiliki default no-op, jadi kamu hanya perlu override method yang diinginkan.
+Embed `highrise.Bot` in your bot struct. All event handlers have default no-op implementations, so you only need to override the methods you care about.
 
 ```go
 type MyBot struct {
     highrise.Bot
 }
 
-// Override hanya yang kamu butuhkan
+// Override only what you need
 func (b *MyBot) OnChat(ctx context.Context, user highrise.User, message string) {
     // handle chat
 }
 ```
 
-### Semua Event Handlers
+### All Event Handlers
 
-| Event | Method | Deskripsi |
-|-------|--------|-----------|
-| Connect | `BeforeStart(ctx)` | Dipanggil sebelum koneksi (opsional, implement `HasBeforeStart`) |
-| Session | `OnStart(ctx, *SessionMetadata)` | Koneksi established, session metadata diterima |
-| Chat | `OnChat(ctx, User, message)` | User mengirim chat publik |
-| Whisper | `OnWhisper(ctx, User, message)` | User mengirim whisper |
-| Emote | `OnEmote(ctx, User, emoteID, *User)` | User melakukan emote |
-| Reaction | `OnReaction(ctx, User, reaction, User)` | User memberikan reaction |
-| User Join | `OnUserJoin(ctx, User, PositionOrAnchor)` | User masuk room |
-| User Leave | `OnUserLeave(ctx, User)` | User keluar room |
-| User Move | `OnUserMove(ctx, User, PositionOrAnchor)` | User berpindah posisi |
-| Tip | `OnTip(ctx, sender, receiver, *TipItem)` | User memberikan tip |
-| Voice | `OnVoiceChange(ctx, []UserVoiceStatus, secondsLeft)` | Status voice chat berubah |
-| Channel | `OnChannel(ctx, senderID, message, tags)` | Pesan channel diterima |
-| DM | `OnMessage(ctx, userID, convID, isNew)` | Pesan inbox diterima |
-| Moderate | `OnModerate(ctx, modID, targetID, modType, *duration)` | Moderasi terjadi |
-| Error | `OnError(ctx, Error)` | Server mengirim error |
-| Any Event | `OnAnyEvent(ctx, eventType, data)` | Setiap event (raw JSON) |
-| State | `OnConnectionChange(ctx, ConnectionState)` | Status koneksi berubah |
+| Event | Method | Description |
+|-------|--------|-------------|
+| Connect | `BeforeStart(ctx)` | Called before connection (optional, implement `HasBeforeStart`) |
+| Session | `OnStart(ctx, *SessionMetadata)` | Connection established, session metadata received |
+| Chat | `OnChat(ctx, User, message)` | User sent a public chat message |
+| Whisper | `OnWhisper(ctx, User, message)` | User sent a private whisper |
+| Emote | `OnEmote(ctx, User, emoteID, *User)` | User performed an emote |
+| Reaction | `OnReaction(ctx, User, reaction, User)` | User reacted to another user |
+| User Join | `OnUserJoin(ctx, User, PositionOrAnchor)` | User entered the room |
+| User Leave | `OnUserLeave(ctx, User)` | User left the room |
+| User Move | `OnUserMove(ctx, User, PositionOrAnchor)` | User changed position |
+| Tip | `OnTip(ctx, sender, receiver, *TipItem)` | A tip was sent |
+| Voice | `OnVoiceChange(ctx, []UserVoiceStatus, secondsLeft)` | Voice chat status changed |
+| Channel | `OnChannel(ctx, senderID, message, tags)` | Channel message received |
+| DM | `OnMessage(ctx, userID, convID, isNew)` | Inbox message received |
+| Moderate | `OnModerate(ctx, modID, targetID, modType, *duration)` | A moderation action occurred |
+| Error | `OnError(ctx, Error)` | Server sent an error message |
+| Any Event | `OnAnyEvent(ctx, eventType, data)` | Every event (raw JSON payload) |
+| State | `OnConnectionChange(ctx, ConnectionState)` | Connection state changed |
 
-### Cara Implement
+### How to Implement
 
-Gunakan interface `Has*` untuk mendaftarkan handler secara optional:
+Implement the `Has*` interface to register a handler:
 
 ```go
-// Implement langsung di struct (otomatis terdeteksi)
+// Implement directly on your struct (auto-detected)
 func (b *MyBot) OnChat(ctx context.Context, user highrise.User, message string) { ... }
 
-// Atau via interface check
+// Or via interface assertion
 var _ highrise.HasOnChat = (*MyBot)(nil)
 ```
 
 ## Bot Actions
 
-Semua actions diakses melalui `b.Highrise` (atau `client.Highrise()`).
+All actions are accessed via `b.Highrise` (or `client.Highrise()`).
 
 ### Chat & Messaging
 
 ```go
-// Kirim chat publik
+// Send a public chat message
 b.Highrise.Chat(ctx, "Hello!")
 
-// Kirim whisper ke user tertentu
+// Send a whisper to a specific user
 b.Highrise.SendWhisper(ctx, userID, "Secret message")
 
-// Balas chat user dengan @username
+// Reply to a user's chat with @username prefix
 b.Highrise.Reply(ctx, user, "pong!")
 
-// Balas whisper
+// Reply via whisper
 b.Highrise.WhisperReply(ctx, user, "Secret reply")
 
-// Set indicator icon (nil untuk remove)
+// Set indicator icon (nil to remove)
 icon := "star"
 b.Highrise.SetIndicator(ctx, &icon)
 b.Highrise.SetIndicator(ctx, nil)
 
-// Kirim ke channel
+// Send a channel message with tags
 b.Highrise.SendChannel(ctx, "channel message", []string{"tag1", "tag2"})
 ```
 
 ### Movement
 
 ```go
-// Jalan ke posisi
+// Walk to a position
 b.Highrise.WalkTo(ctx, highrise.Position{X: 5, Y: 0, Z: 3, Facing: "FrontRight"})
 
-// Jalan ke anchor
+// Walk to an anchor point
 b.Highrise.WalkToAnchor(ctx, highrise.AnchorPosition{EntityID: "ent_123", AnchorIx: 0})
 
-// Teleport user
+// Teleport a user
 b.Highrise.Teleport(ctx, userID, highrise.Position{X: 0, Y: 0, Z: 0, Facing: "Front"})
 ```
 
 ### Emotes & Reactions
 
 ```go
-// Kirim emote (targetUserID optional)
+// Send an emote (targetUserID is optional)
 b.Highrise.SendEmote(ctx, "emoji_laugh", nil)
 b.Highrise.SendEmote(ctx, "emoji_wave", &targetUserID)
 
-// React ke user
+// React to a user
 b.Highrise.React(ctx, "heart", targetUserID)
 ```
 
 ### Moderation
 
 ```go
-// Kick user
+// Kick a user
 b.Highrise.ModerateRoom(ctx, userID, "kick", nil)
 
-// Ban user (duration dalam detik, nil = permanent)
-duration := 3600 // 1 jam
+// Ban a user (duration in seconds, nil = permanent)
+duration := 3600 // 1 hour
 b.Highrise.ModerateRoom(ctx, userID, "ban", &duration)
 
-// Mute user
-duration = 300 // 5 menit
+// Mute a user
+duration = 300 // 5 minutes
 b.Highrise.ModerateRoom(ctx, userID, "mute", &duration)
 
-// Unban user
+// Unban a user
 b.Highrise.ModerateRoom(ctx, userID, "unban", nil)
 
-// Set/remove moderator
+// Grant/revoke moderator privileges
 modTrue := true
 modFalse := false
 b.Highrise.ChangeRoomPrivilege(ctx, userID, highrise.RoomPermissions{Moderator: &modTrue})
 b.Highrise.ChangeRoomPrivilege(ctx, userID, highrise.RoomPermissions{Moderator: &modFalse})
 
-// Pindahkan user ke room lain
+// Move a user to another room
 b.Highrise.MoveUserToRoom(ctx, userID, roomID)
 ```
 
 ### Voice Chat
 
 ```go
-// Cek status voice chat
+// Check voice chat status
 status, err := b.Highrise.GetVoiceStatus(ctx)
 // status.SecondsLeft, status.Users, status.AutoSpeakers
 
-// Invite/remove speaker
+// Invite/remove a speaker
 b.Highrise.InviteSpeaker(ctx, userID)
 b.Highrise.RemoveSpeaker(ctx, userID)
 
-// Beli waktu voice
+// Purchase voice time
 result, err := b.Highrise.BuyVoiceTime(ctx)
 ```
 
 ### Economy
 
 ```go
-// Cek wallet
+// Check wallet balance
 wallet, err := b.Highrise.GetWallet(ctx)
 for _, item := range wallet {
     fmt.Printf("%s: %d\n", item.Type, item.Amount)
 }
 
-// Tip user
+// Tip a user
 result, err := b.Highrise.TipUser(ctx, userID, "gold_bar_10")
 
-// Beli item
+// Buy an item from the shop
 result, err := b.Highrise.BuyItem(ctx, itemID)
 
-// Beli room boost
+// Purchase a room boost
 result, err := b.Highrise.BuyRoomBoost(ctx, 1)
 ```
 
 ### Items & Outfit
 
 ```go
-// Get inventory bot
+// Get the bot's inventory
 items, err := b.Highrise.GetInventory(ctx)
 
-// Set outfit bot
+// Set the bot's outfit
 b.Highrise.SetOutfit(ctx, []highrise.Item{
     {Type: "shirt", ID: "item_123", Amount: 1, AccountBound: false},
 })
 
-// Get outfit user
+// Get a user's outfit
 outfit, err := b.Highrise.GetUserOutfit(ctx, userID)
 
-// Get outfit bot sendiri
+// Get the bot's own outfit
 outfit, err := b.Highrise.GetMyOutfit(ctx)
 
-// Get backpack user
+// Get a user's backpack
 bp, err := b.Highrise.GetBackpack(ctx, userID)
 // bp = map[string]int{"gold_bar_10": 5}
 
-// Change backpack
+// Modify a user's backpack
 b.Highrise.ChangeBackpack(ctx, userID, map[string]int{
-    "gold_bar_10": -1, // kurangi 1
+    "gold_bar_10": -1, // decrease by 1
 })
 ```
 
 ### Room Info
 
 ```go
-// Get semua user di room
+// Get all users in the room
 users, err := b.Highrise.GetRoomUsers(ctx)
 for _, entry := range users {
     fmt.Printf("%s at (%.1f, %.1f, %.1f)\n",
@@ -307,7 +307,7 @@ for _, entry := range users {
     )
 }
 
-// Get privilege user
+// Get a user's room privileges
 perms, err := b.Highrise.GetRoomPrivilege(ctx, userID)
 // perms.Moderator, perms.Designer
 ```
@@ -315,25 +315,25 @@ perms, err := b.Highrise.GetRoomPrivilege(ctx, userID)
 ### Direct Messages (DM)
 
 ```go
-// Get conversations
+// Get conversation list
 convs, notJoined, err := b.Highrise.GetConversations(ctx, false, nil)
 
-// Kirim pesan
+// Send a text message
 b.Highrise.SendMessage(ctx, convID, "Hello!", "text", nil, nil, nil)
 
-// Kirim pesan dengan media
+// Send a message with media
 b.Highrise.SendMessage(ctx, convID, "Check this out!", "text", nil, nil, &mediaID)
 
-// Kirim bulk message
+// Send a bulk message to multiple users
 b.Highrise.SendBulkMessage(ctx, []string{"uid1", "uid2"}, "Broadcast!", "text", nil, nil)
 
-// Get messages
+// Get messages in a conversation
 msgs, err := b.Highrise.GetMessages(ctx, convID, lastMessageID)
 
-// Leave conversation
+// Leave a conversation
 b.Highrise.LeaveConversation(ctx, convID)
 
-// Upload media
+// Upload media for use in a message
 media := highrise.MessageMedia{Type: "image", Width: 100, Height: 100}
 resp, err := b.Highrise.MessageMediaUpload(ctx, media)
 // resp.UploadURL, resp.ThumbnailUploadURL
@@ -348,19 +348,19 @@ client := highrise.NewClient(bot, highrise.WithURL("wss://custom.url"))
 // Custom logger
 client := highrise.NewClient(bot, highrise.WithLogger(myLogger))
 
-// Custom SDK version (dikirim ke server)
+// Custom SDK version (sent to server)
 client := highrise.NewClient(bot, highrise.WithSDKVersion("1.0.0"))
 
 // Custom event subscription
 client := highrise.NewClient(bot, highrise.WithEvents("chat,user_joined,user_left"))
 
-// Custom action timeout (default: 10s, 0 = disable)
+// Custom action timeout (default: 10s, 0 to disable)
 client := highrise.NewClient(bot, highrise.WithActionTimeout(30*time.Second))
 ```
 
 ## Middleware
 
-Middleware membungkus setiap event handler call. Berguna untuk logging, metrics, atau auth checks.
+Middleware wraps every event handler call. Useful for logging, metrics, or auth checks.
 
 ```go
 // Timing middleware
@@ -377,10 +377,10 @@ client.Use(func(next func()) {
     log.Println("After event handler")
 })
 
-// Multiple middleware (dijalankan berurutan)
+// Multiple middleware (executed in order added)
 client.Use(middleware1)
 client.Use(middleware2)
-// Urutan: middleware1 → middleware2 → actual handler
+// Execution order: middleware1 → middleware2 → actual handler
 ```
 
 ## Connection State
@@ -398,7 +398,7 @@ func (b *MyBot) OnConnectionChange(ctx context.Context, state highrise.Connectio
     }
 }
 
-// Via client
+// Via client methods
 if client.IsConnected() { ... }
 if client.IsStopped() { ... }
 ```
@@ -419,7 +419,7 @@ metrics := client.Metrics()
 ctx, cancel := context.WithCancel(context.Background())
 defer cancel()
 
-// Handle signal
+// Handle OS signals
 sigCh := make(chan os.Signal, 1)
 signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 go func() {
@@ -433,7 +433,7 @@ if err := client.Run(ctx, roomID, apiToken); err != nil {
 }
 ```
 
-Atau gunakan `client.Stop()`:
+Or use `client.Stop()`:
 
 ```go
 go client.Run(ctx, roomID, apiToken)
@@ -444,22 +444,22 @@ client.Stop() // graceful shutdown
 ## Error Handling
 
 ```go
-// ResponseError - error dari server
+// ResponseError - error returned by the server
 var respErr *highrise.ResponseError
 if errors.As(err, &respErr) {
     log.Printf("Server error: %s", respErr.Message)
 }
 
-// ConnectionError - error dari WebSocket layer
+// ConnectionError - error from the WebSocket layer
 var connErr *highrise.ConnectionError
 if errors.As(err, &connErr) {
     log.Printf("Connection error [%s]: %v", connErr.ReqType, connErr.Err)
 }
 ```
 
-### Server Error dengan DoNotReconnect
+### Server Error with DoNotReconnect
 
-Jika server mengirim error dengan `DoNotReconnect: true`, client akan otomatis stop. Implement `HasOnError` untuk menanganinya:
+If the server sends an error with `DoNotReconnect: true`, the client will automatically stop. Implement `HasOnError` to handle it:
 
 ```go
 func (b *MyBot) OnError(ctx context.Context, err highrise.Error) {
@@ -469,7 +469,7 @@ func (b *MyBot) OnError(ctx context.Context, err highrise.Error) {
 
 ## WebAPI (REST Client)
 
-Untuk data read-only tanpa koneksi WebSocket.
+For read-only data without a WebSocket connection.
 
 ```go
 api := highrise.NewWebAPI()
@@ -510,19 +510,19 @@ posts, err := api.GetPosts(ctx, highrise.PostsListParams{
 
 ### Pagination
 
-Semua list endpoints mendukung pagination:
+All list endpoints support pagination:
 
 ```go
-// Halaman pertama
+// First page
 resp1, _ := api.GetRooms(ctx, highrise.RoomsListParams{Limit: 20})
 
-// Halaman berikutnya
+// Next page
 resp2, _ := api.GetRooms(ctx, highrise.RoomsListParams{
     Limit:       20,
     StartsAfter: resp1.LastID,
 })
 
-// Halaman sebelumnya
+// Previous page
 resp3, _ := api.GetRooms(ctx, highrise.RoomsListParams{
     Limit:      20,
     EndsBefore: resp1.FirstID,
@@ -557,11 +557,11 @@ type PositionOrAnchor struct {
 }
 
 type Item struct {
-    Type         string `json:"type"`
-    Amount       int    `json:"amount"`
-    ID           string `json:"id"`
-    AccountBound bool   `json:"account_bound"`
-    ActivePalette *int  `json:"active_palette,omitempty"`
+    Type          string `json:"type"`
+    Amount        int    `json:"amount"`
+    ID            string `json:"id"`
+    AccountBound  bool   `json:"account_bound"`
+    ActivePalette *int   `json:"active_palette,omitempty"`
 }
 
 type CurrencyItem struct {
@@ -577,13 +577,13 @@ type TipItem struct {
 
 ### Polymorphic Types
 
-Beberapa type memiliki custom JSON marshaling:
+Some types have custom JSON marshaling:
 
-- **`PositionOrAnchor`** - Bisa berupa `Position` atau `AnchorPosition` (ditentukan oleh keberadaan field `entity_id`)
-- **`TipItem`** - Bisa berupa `CurrencyItem` atau `Item` (ditentukan oleh keberadaan field `id`)
-- **`UserVoiceStatus`** - Tuple `[User, string]` dalam JSON array
+- **`PositionOrAnchor`** - Can be either a `Position` or `AnchorPosition` (determined by the presence of the `entity_id` field)
+- **`TipItem`** - Can be either a `CurrencyItem` or `Item` (determined by the presence of the `id` field)
+- **`UserVoiceStatus`** - Tuple `[User, string]` as a JSON array
 
-## Struktur Project
+## Project Structure
 
 ```
 highrise-go/
@@ -613,10 +613,10 @@ highrise-go/
 
 ## CI
 
-Pipeline otomatis di GitHub Actions:
+Automated pipeline on GitHub Actions:
 
-- **Build & Vet** - Compile dan static analysis
-- **Test** - Unit tests (Linux dengan race detector, Windows tanpa)
+- **Build & Vet** - Compilation and static analysis
+- **Test** - Unit tests (Linux with race detector, Windows without)
 - **Benchmark** - Performance benchmarks (Linux only)
 
 Matrix: `ubuntu-latest` + `windows-latest`
