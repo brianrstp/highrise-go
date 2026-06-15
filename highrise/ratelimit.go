@@ -10,8 +10,9 @@ import (
 type slidingWindow struct {
 	limit  int
 	window time.Duration
-	count  int
+	count  int64
 	start  time.Time
+	mu     sync.Mutex
 }
 
 func newSlidingWindow(limit int, windowSec float64) *slidingWindow {
@@ -23,12 +24,16 @@ func newSlidingWindow(limit int, windowSec float64) *slidingWindow {
 }
 
 func (w *slidingWindow) acquire() time.Duration {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	now := time.Now()
 	if now.Sub(w.start) >= w.window {
 		w.count = 0
 		w.start = now
+		return 0
 	}
-	if w.count < w.limit {
+	if w.count < int64(w.limit) {
 		w.count++
 		return 0
 	}

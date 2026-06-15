@@ -19,6 +19,7 @@
 package highrise
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -32,6 +33,13 @@ import (
 
 	"github.com/gorilla/websocket"
 )
+
+// JSON buffer pool for reducing allocations
+var jsonPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
 
 var keepaliveInterval = 15 * time.Second
 
@@ -145,17 +153,18 @@ type Client struct {
 	reconnectDelay time.Duration
 	sdkVersion     string
 
-	eventSem      chan struct{}
-	rateLimiter   *rateLimiter
-	log           Logger
-	state         ConnectionState
-	middlewares   []Middleware
-	eventFilter   string
-	actionTimeout time.Duration
+	eventSem       chan struct{}
+	eventSemMu     sync.Mutex
+	rateLimiter    *rateLimiter
+	log            Logger
+	state          ConnectionState
+	middlewares    []Middleware
+	eventFilter    string
+	actionTimeout  time.Duration
 
-	totalEvents atomic.Int64
-	totalActions atomic.Int64
-	totalErrors atomic.Int64
+	totalEvents     atomic.Int64
+	totalActions    atomic.Int64
+	totalErrors     atomic.Int64
 	totalReconnects atomic.Int64
 }
 
@@ -299,10 +308,23 @@ func (c *Client) backoffSleep(ctx context.Context) {
 	delay := c.reconnectDelay + jitter
 
 	timer := time.NewTimer(delay)
-	defer timer.Stop()
+	selCh := make(chan struct{})
+	selCh <- struct{}{} // Start with a default selection
+	go func() {
+		select {
+		case <-c.stopCh:
+			timer.Stop()
+		case <-timer.C:
+		}
+		close(selCh)
+	}()
+
 	select {
 	case <-ctx.Done():
-	case <-timer.C:
+		if !timer.Stop() {
+			<-timer.C
+		}
+	case <-selCh:
 	}
 }
 
@@ -377,7 +399,12 @@ func (c *Client) readLoop(ctx context.Context) {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			c.log.Printf("Read error: %v", err)
-			return
+			if c.IsStopped() || ctx.Err() != nil {
+				return
+			}
+			c.log.Printf("Reconnecting after read error...")
+			c.backoffSleep(ctx)
+			continue
 		}
 
 		c.handleMessage(ctx, message)
@@ -389,7 +416,13 @@ func (c *Client) handleMessage(ctx context.Context, data []byte) {
 		Type string  `json:"_type"`
 		RID  *string `json:"rid,omitempty"`
 	}
-	if err := json.Unmarshal(data, &envelope); err != nil {
+	// Use jsonDecoder with pooled buffer
+	buf := jsonPool.Get().(*bytes.Buffer)
+	defer jsonPool.Put(buf)
+	buf.Reset()
+	buf.Write(data)
+	
+	if err := json.NewDecoder(buf).Decode(&envelope); err != nil {
 		c.log.Printf("Failed to decode envelope: %v", err)
 		return
 	}
@@ -420,8 +453,10 @@ func (c *Client) dispatchEvent(fn func()) {
 		fn = func() { mw(prev) }
 	}
 
+	c.eventSemMu.Lock()
 	select {
 	case c.eventSem <- struct{}{}:
+		c.eventSemMu.Unlock()
 		go func() {
 			defer func() {
 				<-c.eventSem
@@ -432,6 +467,7 @@ func (c *Client) dispatchEvent(fn func()) {
 			fn()
 		}()
 	default:
+		c.eventSemMu.Unlock()
 		c.log.Printf("Event worker pool full, dropping event")
 	}
 }
@@ -448,7 +484,9 @@ func (c *Client) routeEvent(ctx context.Context, msgType string, data []byte) {
 			c.log.Printf("Failed to decode SessionMetadata: %v", err)
 			return
 		}
-		c.highrise.setMyID(meta.UserID)
+		if c.highrise != nil {
+			c.highrise.setMyID(meta.UserID)
+		}
 		c.rateLimiter.apply(meta.RateLimits)
 		if h, ok := c.handler.(HasOnStart); ok {
 			c.dispatchEvent(func() { h.OnStart(ctx, &meta) })
@@ -617,14 +655,28 @@ func (c *Client) writeJSON(v any) error {
 		return fmt.Errorf("not connected")
 	}
 	c.conn.SetWriteDeadline(time.Now().Add(defaultWriteDeadline))
-	data, err := json.Marshal(v)
-	if err != nil {
+
+	// Get buffer from pool and marshal to it
+	buf := jsonPool.Get().(*bytes.Buffer)
+	defer jsonPool.Put(buf)
+	buf.Reset()
+
+	if err := json.NewEncoder(buf).Encode(v); err != nil {
 		return fmt.Errorf("marshal: %w", err)
 	}
-	return c.conn.WriteMessage(websocket.TextMessage, data)
+	
+	writeErr := c.conn.WriteMessage(websocket.TextMessage, buf.Bytes())
+	if writeErr != nil {
+		c.log.Printf("Write error: %v, reconnecting...", writeErr)
+		c.conn.Close()
+		c.conn = nil
+		c.setState(StateDisconnected)
+		return writeErr
+	}
+	return nil
 }
 
-func (c *Client) sendRequest(ctx context.Context, req any) ([]byte, error) {
+func (c *Client) sendRequest(ctx context.Context, req any) (resp []byte, err error) {
 	ridder, ok := req.(reqRIDer)
 	if !ok {
 		return nil, fmt.Errorf("request type %T does not implement reqRIDer", req)
@@ -646,7 +698,12 @@ func (c *Client) sendRequest(ctx context.Context, req any) ([]byte, error) {
 
 	ch := make(chan []byte, 1)
 	c.pendingResp.Store(rid, ch)
-	defer c.pendingResp.Delete(rid)
+	defer func() {
+		c.pendingResp.Delete(rid)
+		if ch != nil {
+			close(ch)
+		}
+	}()
 
 	if err := c.writeJSON(req); err != nil {
 		return nil, &ConnectionError{
@@ -658,11 +715,8 @@ func (c *Client) sendRequest(ctx context.Context, req any) ([]byte, error) {
 
 	c.totalActions.Add(1)
 
-	resp, err := c.waitResponse(ctx, ch, rid, reqType)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+	resp, err = c.waitResponse(ctx, ch, rid, reqType)
+	return resp, err
 }
 
 func (c *Client) withActionTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
@@ -683,11 +737,16 @@ func (c *Client) waitResponse(ctx context.Context, ch chan []byte, rid, reqType 
 		case <-c.stopCh:
 			return nil, NewResponseError(fmt.Sprintf("%s[%s]: client stopped", reqType, rid))
 		case resp := <-ch:
+			// Use jsonDecoder with pooled buffer
+			buf := jsonPool.Get().(*bytes.Buffer)
+			defer jsonPool.Put(buf)
+			buf.Reset()
+			buf.Write(resp)
 			var errMsg struct {
 				Type    string `json:"_type"`
 				Message string `json:"message"`
 			}
-			if json.Unmarshal(resp, &errMsg) == nil && errMsg.Type == "Error" {
+			if err := json.NewDecoder(buf).Decode(&errMsg); err == nil && errMsg.Type == "Error" {
 				return nil, NewResponseError(errMsg.Message)
 			}
 			return resp, nil

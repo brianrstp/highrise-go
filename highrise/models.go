@@ -1,6 +1,7 @@
 package highrise
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 )
@@ -26,11 +27,7 @@ type PositionOrAnchor struct {
 }
 
 func (p *PositionOrAnchor) UnmarshalJSON(data []byte) error {
-	var raw map[string]any
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	if _, ok := raw["entity_id"]; ok {
+	if bytes.Contains(data, []byte(`"entity_id"`)) {
 		var ap AnchorPosition
 		if err := json.Unmarshal(data, &ap); err != nil {
 			return err
@@ -60,25 +57,25 @@ type TipItem struct {
 }
 
 func (t *TipItem) UnmarshalJSON(data []byte) error {
-	var raw map[string]any
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	if _, ok := raw["id"]; ok {
-		var item Item
-		if err := json.Unmarshal(data, &item); err != nil {
+		var m map[string]interface{}
+		if err := json.Unmarshal(data, &m); err != nil {
 			return err
 		}
-		t.Item = &item
-	} else {
-		var ci CurrencyItem
-		if err := json.Unmarshal(data, &ci); err != nil {
-			return err
+		if _, hasID := m["id"]; hasID {
+			var item Item
+			if err := json.Unmarshal(data, &item); err != nil {
+				return err
+			}
+			t.Item = &item
+		} else {
+			var ci CurrencyItem
+			if err := json.Unmarshal(data, &ci); err != nil {
+				return err
+			}
+			t.CurrencyItem = &ci
 		}
-		t.CurrencyItem = &ci
+		return nil
 	}
-	return nil
-}
 
 // UserVoiceStatus is a tuple of User and voice status
 type UserVoiceStatus struct {
@@ -94,6 +91,10 @@ func (s *UserVoiceStatus) UnmarshalJSON(data []byte) error {
 	if len(raw) != 2 {
 		return fmt.Errorf("expected 2 elements in UserVoiceStatus, got %d", len(raw))
 	}
+
+	if raw[0] == nil {
+		return fmt.Errorf("UserVoiceStatus: user field cannot be null")
+	}
 	userBytes, err := json.Marshal(raw[0])
 	if err != nil {
 		return err
@@ -101,9 +102,17 @@ func (s *UserVoiceStatus) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(userBytes, &s.User); err != nil {
 		return err
 	}
-	s.Status, _ = raw[1].(string)
+
+	if raw[1] == nil {
+		return fmt.Errorf("UserVoiceStatus: status field cannot be null")
+	}
+	if status, ok := raw[1].(string); ok {
+		s.Status = status
+	} else {
+		return fmt.Errorf("UserVoiceStatus: status must be a string")
+	}
 	return nil
-}
+	}
 
 // User represents a Highrise user
 type User struct {
