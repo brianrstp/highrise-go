@@ -2,6 +2,8 @@
 
 Go SDK for the [Highrise Bot API](https://highrise.game). Provides a WebSocket client for real-time bot actions (chat, walk, teleport, etc.), event handler interfaces, rate limiting, middleware system, and a REST client for the Highrise WebAPI.
 
+Full Documentation visit my site [Click Here](https://highrise.brianrstp.me)
+
 ## Features
 
 - **WebSocket Client** - Real-time connection to Highrise rooms with auto-reconnect (exponential backoff + jitter)
